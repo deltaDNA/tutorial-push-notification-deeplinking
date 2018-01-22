@@ -29,6 +29,7 @@ namespace DeeplinkingTutorial
 			};
 			DDNA.Instance.IosNotifications.RegisterForPushNotifications();
 
+
             ///////////////////////////////////////////////////////////////////
             // Start the deltaDNA SDK and use it to capture gameplay 
             
@@ -43,7 +44,7 @@ namespace DeeplinkingTutorial
             // Launch the SDK
             // This is currently connected to the DEMO game DEV environment            
             DDNA.Instance.StartSDK(
-                "56919948607282167963952652014071",
+				"56922021622026022056772309414071",
                 "https://collect2674dltcr.deltadna.net/collect/api",
                 "https://engage2674dltcr.deltadna.net"
             );
@@ -52,6 +53,7 @@ namespace DeeplinkingTutorial
 
 
 
+		///////////////////////////////////////////////////////////////////////////////////////
 		// The game has received a Push notifcation, look at the notifcation payload for promoID
 		void ProcessNotification(string notification)
 		{
@@ -62,13 +64,14 @@ namespace DeeplinkingTutorial
 
 			if (payload.ContainsKey ("promoID") && payload.ContainsKey ("promoChannel")) 
 			{
-				// PromoID found, now need to check Engage for campaigns using this for gifting or deeplinking
+				// Check Engage for campaigns using this for promoID for gifting or deeplinking
 				DeeplinkCampaignCheck (payload["promoID"].ToString(), payload["promoChannel"].ToString());
 			}
 		}
 
 
 
+		///////////////////////////////////////////////////////////////////////////////////////
 		// Make an Engage In-Game Campaign request on the deeplink decision point 
 		// This will reveal if there are any active rewards or deeplinks for this player.
 		void DeeplinkCampaignCheck(string promoID, string promoChannel)
@@ -84,41 +87,62 @@ namespace DeeplinkingTutorial
 			DDNA.Instance.RequestEngagement(engagement, (Dictionary<string, object> response) => {
 				
 				// Handle response from Engage campaign
-				// This example just uses a GameParameter response, but you could use a PopupImage response
-				// to display a popup notifying the player of reward instead.
+				// This example just uses a GameParameter response, but you could use a PopupImage response instead
 
-				// Uncomment for some additional Debug showing full response from Engage
-				// Debug.Log(DeltaDNA.MiniJSON.Json.Serialize(response)); 
-
-
+				// Parse game parameters from campaign response
 				if (response!= null && response.ContainsKey("parameters"))
 				{
-					// Engage has responsed, and the response contains some paramters for the game client. 
+					// Engage response contains some paramters for the game client. 
 					object p;
 					response.TryGetValue("parameters", out p);
 					Dictionary<string,object> parameters = p as Dictionary<string,object>;
 
-					if (parameters.ContainsKey("promoType")
+					if (parameters.ContainsKey("promoType"))
 					{
-						switch(parameters["promoType"].ToString())
+						string promoType = parameters["promoType"].ToString();
+
+						// Start creating an event that will report back to deltaDNA that player received a promotion.
+						var promoReceivedEvent = new GameEvent("promoReceived")
+							.AddParam("promoID", promoID)
+							.AddParam("promoChannel",promoChannel)
+							.AddParam("promoType", promoType);
+						
+
+						// Extract deeplink or reward values
+						int coinRewardAmount = 0 ;
+						string deeplinkDestination = null ; 
+					
+						if (parameters.ContainsKey("coinRewardAmount")) 
+							coinRewardAmount = System.Convert.ToInt32(parameters["coinRewardAmount"]) ; 
+
+						if (parameters.ContainsKey("deeplinkDestination"))
+									deeplinkDestination = parameters["deeplinkDestination"].ToString();
+
+
+						switch(promoType)
 						{
 							case "COINS" :
-								if(parameters.ContainsKey("coinRewardAmount"))
+							 	if(coinRewardAmount > 0 )
 								{
-									DeliverCoins(System.Convert.ToInt32(parameters["coinRewardAmount"]));
+									DeliverCoins(coinRewardAmount);
+									promoReceivedEvent.AddParam("coinRewardAmount",coinRewardAmount);
 								}
 								break;
 
 							case "DEEPLINK" : 
-								if(parameters.ContainsKey("deeplinkDestination"))
+								if(deeplinkDestination !=null)
 								{
-									NavigateTo(parameters["deeplinkDestination"].ToString());
+									NavigateTo(deeplinkDestination);
+									promoReceivedEvent.AddParam("deeplinkDestination",deeplinkDestination);
 								}
 								break ;
 							
 							default:
 								break ; 
 						}
+
+						// Finally record the promoReceivedEvent
+						DDNA.Instance.RecordEvent(promoReceivedEvent);
 					}
 				}
 			});
@@ -161,9 +185,9 @@ namespace DeeplinkingTutorial
 
 			DeliverCoins (100);
 			Debug.Log ("Have some test coins");
-			var exp = GetComponent<ParticleSystem> ();
-			exp.Emit (500);
-			exp.Play ();
+			//var exp = GetComponent<ParticleSystem> ();
+			//exp.Emit (500);
+			//exp.Play ();
 
 		}
 
