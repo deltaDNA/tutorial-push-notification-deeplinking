@@ -86,24 +86,39 @@ namespace DeeplinkingTutorial
 				// Handle response from Engage campaign
 				// This example just uses a GameParameter response, but you could use a PopupImage response
 				// to display a popup notifying the player of reward instead.
-				if (response!= null && response.ContainsKey("promoType"))
-				{
-					switch(response["promoType"].ToString())
-					{
-						case "COINS" :
-							if(response.ContainsKey("coinRewardAmount"))
-							{
-								DeliverCoins(System.Convert.ToInt32(response["coinRewardAmount"]));
-							}
-							break;
 
-						case "DEEPLINK" : 
-							{
-								NavigateTo(response["deeplinkDestination"].ToString());
-							}
-							break ;
-						default:
-							break ; 
+				// Uncomment for some additional Debug showing full response from Engage
+				// Debug.Log(DeltaDNA.MiniJSON.Json.Serialize(response)); 
+
+
+				if (response!= null && response.ContainsKey("parameters"))
+				{
+					// Engage has responsed, and the response contains some paramters for the game client. 
+					object p;
+					response.TryGetValue("parameters", out p);
+					Dictionary<string,object> parameters = p as Dictionary<string,object>;
+
+					if (parameters.ContainsKey("promoType")
+					{
+						switch(parameters["promoType"].ToString())
+						{
+							case "COINS" :
+								if(parameters.ContainsKey("coinRewardAmount"))
+								{
+									DeliverCoins(System.Convert.ToInt32(parameters["coinRewardAmount"]));
+								}
+								break;
+
+							case "DEEPLINK" : 
+								if(parameters.ContainsKey("deeplinkDestination"))
+								{
+									NavigateTo(parameters["deeplinkDestination"].ToString());
+								}
+								break ;
+							
+							default:
+								break ; 
+						}
 					}
 				}
 			});
@@ -144,12 +159,18 @@ namespace DeeplinkingTutorial
 		public void CoinTest()
 		{
 
-			DeliverCoins (199);
-
+			DeliverCoins (100);
+			Debug.Log ("Have some test coins");
 			var exp = GetComponent<ParticleSystem> ();
 			exp.Emit (500);
 			exp.Play ();
 
+		}
+
+		public void EngageTest()
+		{
+			Debug.Log ("Engage test");
+			DeeplinkCampaignCheck ("test", "PUSH");
 		}
     }
 }
